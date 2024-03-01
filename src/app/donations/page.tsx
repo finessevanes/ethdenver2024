@@ -83,7 +83,7 @@ export default function Donations() {
               tier: "wagmi",
               price: 0,
               label:
-                "WAGMI - Custom amount less than $25 and greater than $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
+                "WAGMI - $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
             },
           ].map(({ tier, price, label }) => (
             <div key={tier} className='flex items-center mb-4'>
