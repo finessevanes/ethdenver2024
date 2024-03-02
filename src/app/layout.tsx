@@ -14,11 +14,7 @@ export default function RootLayout({
   return (
     <html lang='en'>
       <body className={inter.className}>
-        <PrivyProvider
-          appId={
-            process.env.NEXT_PUBLIC_PRIVY_APP_ID || "clt4u2h6z0leozj3sgrqh4q93"
-          }
-        >
+        <PrivyProvider appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}>
           {children}
         </PrivyProvider>
       </body>
