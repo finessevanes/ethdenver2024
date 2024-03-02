@@ -34,7 +34,7 @@ const defaultFormData: DonationFormData = {
   price: DonationTiers.gold.usdValue, // Default amount for gold tier, can be dynamically set based on the tier
 };
 
-const sponsorMeAddress = "0x4E458670f6E80fA3F33C8c16Ac712318054C6d5f";
+const sponsorMeAddress = "0xA7ecBa9f53f77Ac028665CbEabb61e2850A4CB7A";
 
 const SponsorLevel = {
   GOLD: 0,
