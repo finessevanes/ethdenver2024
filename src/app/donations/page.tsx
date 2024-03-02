@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
@@ -17,11 +18,13 @@ const defaultFormData: DonationFormData = {
 
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
+  const router = useRouter();
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     // Handle the form submission, e.g., send to an API
     console.log(formData);
+    router.push("/placement");
     // Redirect to the checkout page or display a confirmation message
   };
 
@@ -31,6 +34,7 @@ export default function Donations() {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
   return (
     <div className='container mx-auto p-4'>
       <h1 className='text-2xl font-bold mb-4'>Donations</h1>
@@ -49,7 +53,7 @@ export default function Donations() {
             value={formData.name}
             onChange={handleInputChange}
             placeholder='Enter your name (this will be shown on the shirt for race day)'
-            className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
+            className='mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
             required
           />
         </div>
@@ -81,7 +85,7 @@ export default function Donations() {
             },
             {
               tier: "wagmi",
-              price: 0,
+              price: 5,
               label:
                 "WAGMI - $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
             },
@@ -119,7 +123,7 @@ export default function Donations() {
             value={formData.message}
             onChange={handleInputChange}
             rows={4}
-            className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
+            className='mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
             placeholder='Leave a message for the runner'
           />
         </div>
