@@ -4,7 +4,7 @@ import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import {contractABI} from "../../../src/contract/abi";
+import { contractABI } from "../../../src/contract/abi";
 
 type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
 
@@ -22,18 +22,24 @@ const defaultFormData: DonationFormData = {
   price: 100, // default amount for gold tier
 };
 
-const sponsorMeAddress = '0x4E458670f6E80fA3F33C8c16Ac712318054C6d5f';
+const sponsorMeAddress = "0x4E458670f6E80fA3F33C8c16Ac712318054C6d5f";
 
 const SponsorLevel = {
   GOLD: 0,
   SILVER: 1,
   BRONZE: 2,
-  WAGMI: 3
+  WAGMI: 3,
 };
-
 
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
+  const [requiredWei, setRequiredWei] = useState("0");
+  const USD_VALUES = {
+    gold: 100,
+    silver: 50,
+    bronze: 25,
+    wagmi: 5,
+  };
   let [isMalicious, setIsMalicious] = useState();
   const [donationsLeft, setDonationsLeft] = useState({
     gold: 0,
@@ -41,16 +47,47 @@ export default function Donations() {
     bronze: 0,
     wagmi: Number.MAX_SAFE_INTEGER, // Assuming WAGMI has no max limit or you can dynamically fetch this too
   });
-  
+
   const { wallets } = useWallets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  const sendEth = async () => {
+    if (!window.ethereum) {
+      alert("Please install MetaMask to proceed.");
+      return;
+    }
+
+    try {
+      await window.ethereum.request({ method: "eth_requestAccounts" }); // Request account access if needed
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+
+      const tx = {
+        to: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        value: ethers.utils.parseEther("0.001"),
+      };
+
+  // Send the transaction and log the receipt
+  const receipt = await signer.sendTransaction(tx);
+  console.log(receipt);
+
+    } catch (error) {
+      console.error("Transaction failed:", error);
+      alert("Transaction failed. Check console for details.");
+    }
+  };
+
+
   const fetchDonationsLeft = async (tier: any) => {
     if (!wallets.length) return;
     const provider = await wallets[0]?.getEthersProvider();
-    const sponsorMeContract = new ethers.Contract(sponsorMeAddress, contractABI, provider);
-  
+    const sponsorMeContract = new ethers.Contract(
+      sponsorMeAddress,
+      contractABI,
+      provider
+    );
+
     // Convert tier to SponsorLevel
     const tierToSponsorLevel = {
       gold: SponsorLevel.GOLD,
@@ -58,91 +95,123 @@ export default function Donations() {
       bronze: SponsorLevel.BRONZE,
       wagmi: SponsorLevel.WAGMI,
     };
-  
+
     const tierLevel = tierToSponsorLevel[tier];
-    const donationsLeftForTier = await sponsorMeContract.donationsLeft(tierLevel);
+    const donationsLeftForTier = await sponsorMeContract.donationsLeft(
+      tierLevel
+    );
     const formattedDonationsLeft = donationsLeftForTier.toString();
-  
+
     // Update state with the fetched data
     setDonationsLeft((prev) => ({
       ...prev,
       [tier]: formattedDonationsLeft,
     }));
   };
-  
-  
+
   useEffect(() => {
-    fetchDonationsLeft('gold');
-    fetchDonationsLeft('silver');
-    fetchDonationsLeft('bronze');
+    fetchDonationsLeft("gold");
+    fetchDonationsLeft("silver");
+    fetchDonationsLeft("bronze");
     // Wagmi can be fetched too if needed, or handled differently given it might not have a max limit
   }, [wallets]);
-  
-  const handleSubmit = async (event: FormEvent) => {
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
 
+    if (!wallets.length) {
+      alert("Please connect your wallet.");
+      setLoading(false);
+      return;
+    }
+
+    const provider = await wallets[0]?.getEthersProvider();
+    const signer = provider.getSigner();
+    const contract = new ethers.Contract(sponsorMeAddress, contractABI, signer);
+
     try {
-      const provider = await wallets[0]?.getEthersProvider();
-      const signer = provider?.getSigner();
+      // Convert USD to wei for the selected tier
+      const usdAmount = USD_VALUES[formData.tier];
+      const weiAmount = await contract.usdToEth(usdAmount);
 
-      // Convert the deposit amount to the correct format for sending
-      const amountInEther = ethers.utils.parseEther(formData.price.toString());
-      const contractAddress = "your_contract_address";
-
-      const tx = await signer?.sendTransaction({
-        to: contractAddress,
-        value: amountInEther,
+      // Now proceed to make the donation with the calculated weiAmount
+      const donationTier = SponsorLevel[formData.tier.toUpperCase()];
+      const tx = await contract.makeDonation(donationTier, {
+        value: weiAmount,
       });
 
-      const receipt = await tx?.wait();
+      await tx.wait(); // Wait for the transaction to be mined
+      console.log("Donation made successfully");
 
-      if (receipt && receipt.status === 1) {
-        console.log("Donation transaction confirmed");
-        // Here, you would call your smart contract method to mint the NFT
-        // and handle it similarly, waiting for the transaction receipt
-      } else {
-        console.error("Transaction failed");
-      }
+      // Redirect or inform the user of successful donation
+      router.push("/thank-you");
     } catch (error) {
-      console.error("Donation failed", error);
+      console.error("Donation failed:", error);
     } finally {
       setLoading(false);
-      router.push("/thank-you");
     }
   };
 
-  const handleInputChange = (
+  const handleInputChange = async (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "tier") {
+      await getRequiredWeiForDonation(value);
+    }
   };
 
   const renderCustomAmountInput = () => {
     if (formData.tier === "wagmi") {
       return (
-        <div className='mb-4'>
+        <div className="mb-4">
           <label
-            htmlFor='customAmount'
-            className='block text-sm font-medium text-gray-700'
+            htmlFor="customAmount"
+            className="block text-sm font-medium text-gray-700"
           >
             Custom Donation Amount
           </label>
           <input
-            type='number'
-            name='price'
-            id='price'
+            type="number"
+            name="price"
+            id="price"
             value={formData.price}
             onChange={handleInputChange}
             min={5}
             max={25}
-            className='mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
+            className="mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50"
           />
         </div>
       );
     }
     return null; // If not "wagmi", don't render anything
+  };
+
+  const getRequiredWeiForDonation = async (tier: DonationTier) => {
+    if (!wallets.length) {
+      console.error("Wallet is not connected");
+      return;
+    }
+
+    const usdValue = USD_VALUES[tier.toLowerCase()];
+    try {
+      const provider = await wallets[0].getEthersProvider();
+      const sponsorMeContract = new ethers.Contract(
+        sponsorMeAddress,
+        contractABI,
+        provider
+      );
+      console.log("usdValue", usdValue);
+
+      // Call the usdToEth function from the contract
+      const weiAmount = await sponsorMeContract.usdToEth(usdValue);
+      setRequiredWei(weiAmount.toString());
+    } catch (error) {
+      console.error("Failed to fetch required wei for donation:", error);
+    }
   };
 
   useEffect(() => {
@@ -174,11 +243,18 @@ export default function Donations() {
   }, []);
 
   return (
-    <div className='flex items-center justify-center min-h-screen bg-gray-100'>
-      <div className='container mx-auto p-6 bg-white rounded-lg shadow-md'>
-        <h1 className='text-3xl font-bold text-center text-gray-800 mb-6'>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
           Donations
         </h1>
+        <button
+          onClick={sendEth}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Send 0.000001 ETH
+        </button>
+
         <div
           className={`p-4 mb-4 text-sm font-medium rounded-lg shadow-sm ${
             isMalicious
@@ -191,29 +267,29 @@ export default function Donations() {
         </div>
         <form
           onSubmit={handleSubmit}
-          className='space-y-6 bg-white p-6 rounded-lg shadow-md'
+          className="space-y-6 bg-white p-6 rounded-lg shadow-md"
         >
           <div>
             <label
-              htmlFor='name'
-              className='block text-sm font-medium text-gray-700'
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700"
             >
               Name (as it will be shown on the shirt)
             </label>
             <input
-              type='text'
-              name='name'
-              id='name'
+              type="text"
+              name="name"
+              id="name"
               value={formData.name}
               onChange={handleInputChange}
-              placeholder='Enter your name (this will be shown on the shirt for race day)'
-              className='mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
+              placeholder="Enter your name (this will be shown on the shirt for race day)"
+              className="mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
               required
             />
           </div>
 
-          <fieldset className='mb-4'>
-            <legend className='text-sm font-medium text-gray-700'>
+          <fieldset className="mb-4">
+            <legend className="text-sm font-medium text-gray-700">
               Donation Amount (checkout and placement on next page)
             </legend>
 
@@ -222,20 +298,17 @@ export default function Donations() {
               {
                 tier: "gold",
                 price: 100,
-                label:
-                  `Gold Tier - $100 each (${donationsLeft.gold} left) and you have prime real estate on the running shirt`,
+                label: `Gold Tier - $100 each (${donationsLeft.gold} left) and you have prime real estate on the running shirt`,
               },
               {
                 tier: "silver",
                 price: 50,
-                label:
-                  `Silver Tier - $50 each (${donationsLeft.silver} left) and you have secondary real estate on the running shirt`,
+                label: `Silver Tier - $50 each (${donationsLeft.silver} left) and you have secondary real estate on the running shirt`,
               },
               {
                 tier: "bronze",
                 price: 25,
-                label:
-                  `Bronze Tier - $25 each (${donationsLeft.bronze} left) and you have tertiary real estate on the running shirt`,
+                label: `Bronze Tier - $25 each (${donationsLeft.bronze} left) and you have tertiary real estate on the running shirt`,
               },
               {
                 tier: "wagmi",
@@ -244,19 +317,19 @@ export default function Donations() {
                   "WAGMI - min $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
               },
             ].map(({ tier, price, label }) => (
-              <div key={tier} className='flex items-center mb-4'>
+              <div key={tier} className="flex items-center mb-4">
                 <input
                   id={tier}
-                  type='radio'
-                  name='tier'
+                  type="radio"
+                  name="tier"
                   value={tier}
                   checked={formData.tier === tier}
                   onChange={handleInputChange}
-                  className='focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300'
+                  className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
                 />
                 <label
                   htmlFor={tier}
-                  className='ml-3 block text-sm font-medium text-gray-700'
+                  className="ml-3 block text-sm font-medium text-gray-700"
                 >
                   {label}
                 </label>
@@ -266,27 +339,27 @@ export default function Donations() {
 
           {renderCustomAmountInput()}
 
-          <div className='mb-4'>
+          <div className="mb-4">
             <label
-              htmlFor='message'
-              className='block text-sm font-medium text-gray-700'
+              htmlFor="message"
+              className="block text-sm font-medium text-gray-700"
             >
               Message
             </label>
             <textarea
-              name='message'
-              id='message'
+              name="message"
+              id="message"
               value={formData.message}
               onChange={handleInputChange}
               rows={4}
-              className='mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
-              placeholder='Leave a message for the runner'
+              className="mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              placeholder="Leave a message for the runner"
             />
           </div>
 
           <button
-            type='submit'
-            className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'
+            type="submit"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
             Donate
           </button>
