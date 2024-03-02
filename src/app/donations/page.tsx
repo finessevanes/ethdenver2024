@@ -29,7 +29,7 @@ export default function Donations() {
     event.preventDefault();
     // Handle the form submission, e.g., send to an API
     console.log(formData);
-    router.push("/placement");
+    // router.push("/thank-you");
     // Redirect to the checkout page or display a confirmation message
   };
 
@@ -96,7 +96,7 @@ export default function Donations() {
 
   return (
     <div className='flex items-center justify-center min-h-screen bg-gray-100'>
-      <div className='container mx-auto p-6 bg-gray-50 rounded-lg shadow-md'>
+      <div className='container mx-auto p-6 bg-white rounded-lg shadow-md'>
         <h1 className='text-3xl font-bold text-center text-gray-800 mb-6'>
           Donations
         </h1>
@@ -110,7 +110,10 @@ export default function Donations() {
           {"We've checked this address with Harpie and it's "}
           {isMalicious ? "Malicious" : "Not Malicious"}
         </div>
-        <form onSubmit={handleSubmit} className='space-y-6'>
+        <form
+          onSubmit={handleSubmit}
+          className='space-y-6 bg-white p-6 rounded-lg shadow-md'
+        >
           <div>
             <label
               htmlFor='name'
@@ -206,7 +209,7 @@ export default function Donations() {
             type='submit'
             className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'
           >
-            Next
+            Donate
           </button>
         </form>
       </div>
