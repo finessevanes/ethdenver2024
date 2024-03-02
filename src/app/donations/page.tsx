@@ -8,19 +8,33 @@ import { contractABI } from "../../../src/contract/abi";
 
 type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
 
+interface DonationTierInfo {
+  name: DonationTier;
+  usdValue: number;
+}
+
+const DonationTiers: Record<DonationTier, DonationTierInfo> = {
+  gold: { name: "gold", usdValue: 100 },
+  silver: { name: "silver", usdValue: 50 },
+  bronze: { name: "bronze", usdValue: 25 },
+  wagmi: { name: "wagmi", usdValue: 5 },
+};
+
+
 interface DonationFormData {
   name: string;
   tier: DonationTier;
   message: string;
-  price: number;
+  price: number; // This might be redundant now, consider removing if not needed elsewhere
 }
 
 const defaultFormData: DonationFormData = {
   name: "",
-  tier: "gold", // default selected tier
+  tier: "gold", // Just the tier name, as before
   message: "",
-  price: 100, // default amount for gold tier
+  price: DonationTiers.gold.usdValue, // Default amount for gold tier, can be dynamically set based on the tier
 };
+
 
 const sponsorMeAddress = "0x4E458670f6E80fA3F33C8c16Ac712318054C6d5f";
 
@@ -34,12 +48,6 @@ const SponsorLevel = {
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   const [requiredWei, setRequiredWei] = useState("0");
-  const USD_VALUES = {
-    gold: 100,
-    silver: 50,
-    bronze: 25,
-    wagmi: 5,
-  };
   let [isMalicious, setIsMalicious] = useState();
   const [donationsLeft, setDonationsLeft] = useState({
     gold: 0,
@@ -116,53 +124,41 @@ export default function Donations() {
     // Wagmi can be fetched too if needed, or handled differently given it might not have a max limit
   }, [wallets]);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
 
     if (!wallets.length) {
-      alert("Please connect your wallet.");
-      setLoading(false);
-      return;
+        alert("Please connect your wallet.");
+        setLoading(false);
+        return;
     }
 
-    const provider = await wallets[0]?.getEthersProvider();
+    const provider = await wallets[0].getEthersProvider();
     const signer = provider.getSigner();
     const contract = new ethers.Contract(sponsorMeAddress, contractABI, signer);
 
     try {
-      // Convert USD to wei for the selected tier
-      const usdAmount = USD_VALUES[formData.tier];
-      const weiAmount = await contract.usdToEth(usdAmount);
+        const donationTier = SponsorLevel[formData.tier.toUpperCase() as keyof typeof SponsorLevel];
+        console.log("Donation tier", donationTier);
 
-      // Now proceed to make the donation with the calculated weiAmount
-      const donationTier = SponsorLevel[formData.tier.toUpperCase()];
-      const tx = await contract.makeDonation(donationTier, {
-        value: weiAmount,
-      });
+        // Ensure requiredWei is set correctly before attempting to make a donation
+        if (!requiredWei || requiredWei === "0") {
+            alert("Required wei amount for donation is not set. Please try again.");
+            setLoading(false);
+            return;
+        }
 
-      await tx.wait(); // Wait for the transaction to be mined
-      console.log("Donation made successfully");
-
-      // Redirect or inform the user of successful donation
-      router.push("/thank-you");
+        const tx = await contract.makeDonation(donationTier, { value: requiredWei });
+        await tx.wait();
+        console.log("Donation made successfully");
+        router.push("/thank-you");
     } catch (error) {
-      console.error("Donation failed:", error);
+        console.error("Donation failed:", error);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
-
-  const handleInputChange = async (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (name === "tier") {
-      await getRequiredWeiForDonation(value);
-    }
-  };
+};
 
   const renderCustomAmountInput = () => {
     if (formData.tier === "wagmi") {
@@ -190,29 +186,53 @@ export default function Donations() {
     return null; // If not "wagmi", don't render anything
   };
 
-  const getRequiredWeiForDonation = async (tier: DonationTier) => {
-    if (!wallets.length) {
-      console.error("Wallet is not connected");
-      return;
-    }
+  // Function to call usdToEth and log the conversion result
+const getRequiredWeiForDonation = async (tier: DonationTier) => {
+  if (!wallets.length) {
+    console.error("Wallet is not connected");
+    return;
+  }
 
-    const usdValue = USD_VALUES[tier.toLowerCase()];
-    try {
-      const provider = await wallets[0].getEthersProvider();
-      const sponsorMeContract = new ethers.Contract(
-        sponsorMeAddress,
-        contractABI,
-        provider
-      );
-      console.log("usdValue", usdValue);
+  const provider = await wallets[0]?.getEthersProvider();
+  const contract = new ethers.Contract(sponsorMeAddress, contractABI, provider);
+  
+  // USD value for the selected tier
+  const usdAmount = DonationTiers[tier].usdValue;
 
-      // Call the usdToEth function from the contract
-      const weiAmount = await sponsorMeContract.usdToEth(usdValue);
-      setRequiredWei(weiAmount.toString());
-    } catch (error) {
-      console.error("Failed to fetch required wei for donation:", error);
-    }
-  };
+  try {
+    // Call the smart contract function usdToEth to get the required amount in wei
+    const requiredWei = await contract.usdToEth(usdAmount);
+
+    // Log the result to the console for verification
+    console.log(`${tier} tier requires ${ethers.utils.formatUnits(requiredWei, 'wei')} wei (${ethers.utils.formatEther(requiredWei)} ETH) for donation.`);
+    
+    // Update state with the requiredWei for further processing or UI update
+    setRequiredWei(requiredWei.toString());
+  } catch (error) {
+    console.error("Failed to fetch required wei for donation:", error);
+  }
+};
+
+// Ensure this function is called when a tier is selected
+const handleInputChange = async (
+  event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => {
+  const { name, value } = event.target;
+
+  if (name === "tier") {
+    const newTier = value as DonationTier;
+    // Call getRequiredWeiForDonation to log the USD to ETH conversion for the selected tier
+    await getRequiredWeiForDonation(newTier); // This will log the conversion result
+    setFormData((prev) => ({
+        ...prev,
+        tier: newTier,
+        price: DonationTiers[newTier].usdValue,
+    }));
+  } else {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+};
+
 
   useEffect(() => {
     fetch("https://api.harpie.io/v2/validateAddress", {
@@ -248,13 +268,6 @@ export default function Donations() {
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
           Donations
         </h1>
-        <button
-          onClick={sendEth}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        >
-          Send 0.000001 ETH
-        </button>
-
         <div
           className={`p-4 mb-4 text-sm font-medium rounded-lg shadow-sm ${
             isMalicious
