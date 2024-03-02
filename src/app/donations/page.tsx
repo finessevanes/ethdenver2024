@@ -47,6 +47,7 @@ export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   const [requiredWei, setRequiredWei] = useState("0");
   let [isMalicious, setIsMalicious] = useState();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [donationsLeft, setDonationsLeft] = useState({
     gold: 0,
     silver: 0,
@@ -123,10 +124,18 @@ export default function Donations() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
+    setErrorMessage(null);
 
     if (!wallets.length) {
       alert("Please connect your wallet.");
       setLoading(false);
+      return;
+    }
+
+    if (Number(donationsLeft[formData.tier]) === 0) {
+      setErrorMessage(
+        `The ${formData.tier} tier is full. Please select another tier.`
+      );
       return;
     }
 
@@ -380,10 +389,12 @@ export default function Donations() {
               placeholder='Leave a message for the runner'
             />
           </div>
-
+          {errorMessage && (
+            <div className='mb-4 text-red-500'>{errorMessage}</div>
+          )}
           <button
             type='submit'
-            className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'
+            className='px-4 py-2 bg-purple-600 text-white rounded hover:bg-blue-600'
           >
             Donate
           </button>

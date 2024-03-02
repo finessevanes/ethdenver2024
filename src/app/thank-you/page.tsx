@@ -30,7 +30,7 @@ const ThankYouPage: React.FC = () => {
       </p>
       <div className='text-center md:text-left'>
         <button
-          className='bg-purple-600 text-white font-bold py-2 px-4 rounded-full mb-4'
+          className='bg-purple-600 text-white font-bold mt-8 py-2 px-4 rounded-full mb-4'
           onClick={logoutUser}
         >
           Logout
