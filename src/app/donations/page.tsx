@@ -127,38 +127,41 @@ export default function Donations() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
-
+  
     if (!wallets.length) {
-        alert("Please connect your wallet.");
-        setLoading(false);
-        return;
+      alert("Please connect your wallet.");
+      setLoading(false);
+      return;
     }
-
+  
     const provider = await wallets[0].getEthersProvider();
     const signer = provider.getSigner();
+    const senderAddress = await signer.getAddress();
     const contract = new ethers.Contract(sponsorMeAddress, contractABI, signer);
-
+  
     try {
-        const donationTier = SponsorLevel[formData.tier.toUpperCase() as keyof typeof SponsorLevel];
-        console.log("Donation tier", donationTier);
-
-        // Ensure requiredWei is set correctly before attempting to make a donation
-        if (!requiredWei || requiredWei === "0") {
-            alert("Required wei amount for donation is not set. Please try again.");
-            setLoading(false);
-            return;
-        }
-
-        const tx = await contract.makeDonation(donationTier, { value: requiredWei });
-        await tx.wait();
-        console.log("Donation made successfully");
-        router.push("/thank-you");
-    } catch (error) {
-        console.error("Donation failed:", error);
-    } finally {
+      const donationTier = SponsorLevel[formData.tier.toUpperCase() as keyof typeof SponsorLevel];
+      console.log("Donation tier", donationTier);
+  
+      // Ensure requiredWei is set correctly before attempting to make a donation
+      if (!requiredWei || requiredWei === "0") {
+        alert("Required wei amount for donation is not set. Please try again.");
         setLoading(false);
+        return;
+      }
+  
+      // Directly use requiredWei without converting, as it should already be in wei
+      const tx = await contract.makeDonation(donationTier, senderAddress, { value: requiredWei.toString() });
+      await tx.wait();
+      console.log("Donation made successfully");
+      router.push("/thank-you");
+    } catch (error) {
+      console.error("Donation failed:", error);
+    } finally {
+      setLoading(false);
     }
-};
+  };
+  
 
   const renderCustomAmountInput = () => {
     if (formData.tier === "wagmi") {
@@ -207,7 +210,7 @@ const getRequiredWeiForDonation = async (tier: DonationTier) => {
     console.log(`${tier} tier requires ${ethers.utils.formatUnits(requiredWei, 'wei')} wei (${ethers.utils.formatEther(requiredWei)} ETH) for donation.`);
     
     // Update state with the requiredWei for further processing or UI update
-    setRequiredWei(requiredWei.toString());
+    setRequiredWei(requiredWei);
   } catch (error) {
     console.error("Failed to fetch required wei for donation:", error);
   }
