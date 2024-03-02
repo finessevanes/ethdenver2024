@@ -17,7 +17,7 @@ export default function MarathonBanner() {
   };
 
   return (
-    <div className='flex flex-col items-center justify-start min-h-screen bg-white'>
+    <div className='flex flex-col items-center justify-start min-h-screen bg-white w-full'>
       <MovingBanner text='ADD YOUR NAME ON MY SHIRT FOR RACE DAY * LA MARATHON 2024' />
       <div className='w-full flex flex-col md:flex-row items-center justify-center py-6 px-4 md:px-12'>
         <div className='w-1/3'>
