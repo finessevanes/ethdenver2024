@@ -26,6 +26,12 @@ Welcome to Sponsor Me, we're a donation platform. Right now we're focusing On on
 
 ### Harpie
 
+We're using Harpie's `validateAddress` checks to see if an address is involved in theft, scams, or cybercrime. The owner of the NFT contract gets a background check so that the donor's are able to see that they're donating to a legitimate addresss.
+
 ### Base
 
+We deployed on smart contract on Base.
+
 ### Linea
+
+We're using Linea's Phosphor API for the NFT.
