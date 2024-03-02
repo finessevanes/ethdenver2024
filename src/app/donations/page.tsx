@@ -1,5 +1,7 @@
 "use client";
-import { usePrivy } from "@privy-io/react-auth";
+import donateAndMintNFT from "@/contract/utils";
+import { useWallets } from "@privy-io/react-auth";
+import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -22,15 +24,42 @@ const defaultFormData: DonationFormData = {
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   let [isMalicious, setIsMalicious] = useState();
-  const { user } = usePrivy();
+  const { wallets } = useWallets();
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    // Handle the form submission, e.g., send to an API
-    console.log(formData);
-    // router.push("/thank-you");
-    // Redirect to the checkout page or display a confirmation message
+    setLoading(true);
+
+    try {
+      const provider = await wallets[0]?.getEthersProvider();
+      const signer = provider?.getSigner();
+
+      // Convert the deposit amount to the correct format for sending
+      const amountInEther = ethers.utils.parseEther(formData.price.toString());
+      const contractAddress = "your_contract_address";
+
+      const tx = await signer?.sendTransaction({
+        to: contractAddress,
+        value: amountInEther,
+      });
+
+      const receipt = await tx?.wait();
+
+      if (receipt && receipt.status === 1) {
+        console.log("Donation transaction confirmed");
+        // Here, you would call your smart contract method to mint the NFT
+        // and handle it similarly, waiting for the transaction receipt
+      } else {
+        console.error("Transaction failed");
+      }
+    } catch (error) {
+      console.error("Donation failed", error);
+    } finally {
+      setLoading(false);
+      router.push("/thank-you");
+    }
   };
 
   const handleInputChange = (
