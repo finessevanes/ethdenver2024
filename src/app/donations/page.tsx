@@ -1,5 +1,7 @@
 "use client";
-import { usePrivy } from "@privy-io/react-auth";
+import donateAndMintNFT from "@/contract/utils";
+import { useWallets } from "@privy-io/react-auth";
+import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -22,15 +24,42 @@ const defaultFormData: DonationFormData = {
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   let [isMalicious, setIsMalicious] = useState();
-  const { user } = usePrivy();
+  const { wallets } = useWallets();
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    // Handle the form submission, e.g., send to an API
-    console.log(formData);
-    router.push("/placement");
-    // Redirect to the checkout page or display a confirmation message
+    setLoading(true);
+
+    try {
+      const provider = await wallets[0]?.getEthersProvider();
+      const signer = provider?.getSigner();
+
+      // Convert the deposit amount to the correct format for sending
+      const amountInEther = ethers.utils.parseEther(formData.price.toString());
+      const contractAddress = "your_contract_address";
+
+      const tx = await signer?.sendTransaction({
+        to: contractAddress,
+        value: amountInEther,
+      });
+
+      const receipt = await tx?.wait();
+
+      if (receipt && receipt.status === 1) {
+        console.log("Donation transaction confirmed");
+        // Here, you would call your smart contract method to mint the NFT
+        // and handle it similarly, waiting for the transaction receipt
+      } else {
+        console.error("Transaction failed");
+      }
+    } catch (error) {
+      console.error("Donation failed", error);
+    } finally {
+      setLoading(false);
+      router.push("/thank-you");
+    }
   };
 
   const handleInputChange = (
@@ -96,7 +125,7 @@ export default function Donations() {
 
   return (
     <div className='flex items-center justify-center min-h-screen bg-gray-100'>
-      <div className='container mx-auto p-6 bg-gray-50 rounded-lg shadow-md'>
+      <div className='container mx-auto p-6 bg-white rounded-lg shadow-md'>
         <h1 className='text-3xl font-bold text-center text-gray-800 mb-6'>
           Donations
         </h1>
@@ -110,7 +139,10 @@ export default function Donations() {
           {"We've checked this address with Harpie and it's "}
           {isMalicious ? "Malicious" : "Not Malicious"}
         </div>
-        <form onSubmit={handleSubmit} className='space-y-6'>
+        <form
+          onSubmit={handleSubmit}
+          className='space-y-6 bg-white p-6 rounded-lg shadow-md'
+        >
           <div>
             <label
               htmlFor='name'
@@ -206,7 +238,7 @@ export default function Donations() {
             type='submit'
             className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'
           >
-            Next
+            Donate
           </button>
         </form>
       </div>
