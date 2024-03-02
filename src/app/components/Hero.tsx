@@ -30,9 +30,8 @@ export default function MarathonBanner() {
             <button
               className='bg-purple-600 text-white font-bold py-2 px-4 rounded-full mb-4'
               onClick={donate}
-              // disabled={!authenticated}
             >
-              {authenticated ? "Donate" : "Login to Donate"}
+              Donate
             </button>
           </div>
         </div>
