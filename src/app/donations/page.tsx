@@ -9,12 +9,14 @@ interface DonationFormData {
   name: string;
   tier: DonationTier;
   message: string;
+  price: number;
 }
 
 const defaultFormData: DonationFormData = {
   name: "",
   tier: "gold", // default selected tier
   message: "",
+  price: 100, // default amount for gold tier
 };
 
 export default function Donations() {
@@ -36,6 +38,32 @@ export default function Donations() {
   ) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const renderCustomAmountInput = () => {
+    if (formData.tier === "wagmi") {
+      return (
+        <div className='mb-4'>
+          <label
+            htmlFor='customAmount'
+            className='block text-sm font-medium text-gray-700'
+          >
+            Custom Donation Amount
+          </label>
+          <input
+            type='number'
+            name='price'
+            id='price'
+            value={formData.price}
+            onChange={handleInputChange}
+            min={5}
+            max={25}
+            className='mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
+          />
+        </div>
+      );
+    }
+    return null; // If not "wagmi", don't render anything
   };
 
   useEffect(() => {
@@ -97,7 +125,7 @@ export default function Donations() {
               value={formData.name}
               onChange={handleInputChange}
               placeholder='Enter your name (this will be shown on the shirt for race day)'
-              className='mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
+              className='mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
               required
             />
           </div>
@@ -131,7 +159,7 @@ export default function Donations() {
                 tier: "wagmi",
                 price: 5,
                 label:
-                  "WAGMI - $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
+                  "WAGMI - $5 to $25. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
               },
             ].map(({ tier, price, label }) => (
               <div key={tier} className='flex items-center mb-4'>
@@ -153,6 +181,8 @@ export default function Donations() {
               </div>
             ))}
           </fieldset>
+
+          {renderCustomAmountInput()}
 
           <div className='mb-4'>
             <label
