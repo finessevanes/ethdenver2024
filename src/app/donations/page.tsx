@@ -4,6 +4,7 @@ import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import {contractABI} from "../../../src/contract/abi";
 
 type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
 
@@ -21,13 +22,62 @@ const defaultFormData: DonationFormData = {
   price: 100, // default amount for gold tier
 };
 
+const sponsorMeAddress = '0x4E458670f6E80fA3F33C8c16Ac712318054C6d5f';
+
+const SponsorLevel = {
+  GOLD: 0,
+  SILVER: 1,
+  BRONZE: 2,
+  WAGMI: 3
+};
+
+
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   let [isMalicious, setIsMalicious] = useState();
+  const [donationsLeft, setDonationsLeft] = useState({
+    gold: 0,
+    silver: 0,
+    bronze: 0,
+    wagmi: Number.MAX_SAFE_INTEGER, // Assuming WAGMI has no max limit or you can dynamically fetch this too
+  });
+  
   const { wallets } = useWallets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  const fetchDonationsLeft = async (tier: any) => {
+    if (!wallets.length) return;
+    const provider = await wallets[0]?.getEthersProvider();
+    const sponsorMeContract = new ethers.Contract(sponsorMeAddress, contractABI, provider);
+  
+    // Convert tier to SponsorLevel
+    const tierToSponsorLevel = {
+      gold: SponsorLevel.GOLD,
+      silver: SponsorLevel.SILVER,
+      bronze: SponsorLevel.BRONZE,
+      wagmi: SponsorLevel.WAGMI,
+    };
+  
+    const tierLevel = tierToSponsorLevel[tier];
+    const donationsLeftForTier = await sponsorMeContract.donationsLeft(tierLevel);
+    const formattedDonationsLeft = donationsLeftForTier.toString();
+  
+    // Update state with the fetched data
+    setDonationsLeft((prev) => ({
+      ...prev,
+      [tier]: formattedDonationsLeft,
+    }));
+  };
+  
+  
+  useEffect(() => {
+    fetchDonationsLeft('gold');
+    fetchDonationsLeft('silver');
+    fetchDonationsLeft('bronze');
+    // Wagmi can be fetched too if needed, or handled differently given it might not have a max limit
+  }, [wallets]);
+  
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
@@ -173,25 +223,25 @@ export default function Donations() {
                 tier: "gold",
                 price: 100,
                 label:
-                  "Gold Tier - $100 each (2 options) and you have prime real estate on the running shirt",
+                  `Gold Tier - $100 each (${donationsLeft.gold} left) and you have prime real estate on the running shirt`,
               },
               {
                 tier: "silver",
                 price: 50,
                 label:
-                  "Silver Tier - $50 each (4 options) and you have secondary real estate on the running shirt",
+                  `Silver Tier - $50 each (${donationsLeft.silver} left) and you have secondary real estate on the running shirt`,
               },
               {
                 tier: "bronze",
                 price: 25,
                 label:
-                  "Bronze Tier - $25 each (10 options) and you have tertiary real estate on the running shirt",
+                  `Bronze Tier - $25 each (${donationsLeft.bronze} left) and you have tertiary real estate on the running shirt`,
               },
               {
                 tier: "wagmi",
                 price: 5,
                 label:
-                  "WAGMI - $5 to $25. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
+                  "WAGMI - min $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
               },
             ].map(({ tier, price, label }) => (
               <div key={tier} className='flex items-center mb-4'>
