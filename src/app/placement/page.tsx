@@ -27,7 +27,9 @@ export default function Placement({
       <h1 className='text-3xl font-bold mb-6 text-center'>Placement</h1>
 
       <div className='flex justify-center mb-6'></div>
-      <Image src={"/shirt.svg"} width={300} height={300} alt='Tshirt tier' />
+      <div className='flex justify-center items-center'>
+        <Image src='/shirt.png' width={600} height={600} alt='Tshirt tier' />
+      </div>
       <form onSubmit={handleSubmit}>
         <div className='bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4'>
           <h2 className='text-xl font-semibold mb-4'>
