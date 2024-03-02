@@ -1,4 +1,5 @@
 "use client";
+import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -19,6 +20,7 @@ const defaultFormData: DonationFormData = {
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   let [isMalicious, setIsMalicious] = useState();
+  const { user } = usePrivy();
   const router = useRouter();
 
   const handleSubmit = (event: FormEvent) => {
@@ -45,7 +47,7 @@ export default function Donations() {
       },
       body: JSON.stringify({
         apiKey: "74778fa4-88a8-4e35-922a-02bd82005edd",
-        address: "0x55456cbd1f11298b80a53c896f4b1dc9bc16c731",
+        address: "0x9150C94dE175C6FA4d766a4e951E9c7ed204Ad1a",
       }),
     })
       .then((response) => {
