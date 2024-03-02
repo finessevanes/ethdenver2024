@@ -1,8 +1,19 @@
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { MovingBanner } from "./MovingBanner";
 
 export default function MarathonBanner() {
-  const { login } = usePrivy();
+  const { login, authenticated } = usePrivy();
+  const router = useRouter();
+
+  const donate = async () => {
+    if (authenticated) {
+      router.push("/donations");
+    } else {
+      login();
+    }
+  };
+
   return (
     <div className='flex flex-col items-center justify-start min-h-screen bg-white'>
       <MovingBanner text='ADD YOUR NAME ON MY SHIRT FOR RACE DAY * LA MARATHON 2024' />
@@ -18,9 +29,10 @@ export default function MarathonBanner() {
           <div className='text-center md:text-left'>
             <button
               className='bg-purple-600 text-white font-bold py-2 px-4 rounded-full mb-4'
-              onClick={login}
+              onClick={donate}
+              // disabled={!authenticated}
             >
-              Donate
+              {authenticated ? "Donate" : "Login to Donate"}
             </button>
           </div>
         </div>
