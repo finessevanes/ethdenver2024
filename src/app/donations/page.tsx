@@ -4,21 +4,10 @@ import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { DonationTiers, defaultFormData, sponsorMeAddress, SponsorLevel } from '../../constants/contants';
 import { contractABI } from "../../../src/contract/abi";
 
 type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
-
-interface DonationTierInfo {
-  name: DonationTier;
-  usdValue: number;
-}
-
-const DonationTiers: Record<DonationTier, DonationTierInfo> = {
-  gold: { name: "gold", usdValue: 100 },
-  silver: { name: "silver", usdValue: 50 },
-  bronze: { name: "bronze", usdValue: 25 },
-  wagmi: { name: "wagmi", usdValue: 5 },
-};
 
 interface DonationFormData {
   name: string;
@@ -26,15 +15,6 @@ interface DonationFormData {
   message: string;
   price: number; // This might be redundant now, consider removing if not needed elsewhere
 }
-
-const defaultFormData: DonationFormData = {
-  name: "",
-  tier: "gold", // Just the tier name, as before
-  message: "",
-  price: DonationTiers.gold.usdValue, // Default amount for gold tier, can be dynamically set based on the tier
-};
-
-const sponsorMeAddress = "0x3E28d39Bee8366502d8eA3327a13f9f35Fa788dd";
 
 const SponsorLevel = {
   GOLD: 0,
@@ -58,31 +38,6 @@ export default function Donations() {
   const { wallets } = useWallets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-
-  const sendEth = async () => {
-    if (!window.ethereum) {
-      alert("Please install MetaMask to proceed.");
-      return;
-    }
-
-    try {
-      await window.ethereum.request({ method: "eth_requestAccounts" }); // Request account access if needed
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-
-      const tx = {
-        to: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-        value: ethers.utils.parseEther("0.001"),
-      };
-
-      // Send the transaction and log the receipt
-      const receipt = await signer.sendTransaction(tx);
-      console.log(receipt);
-    } catch (error) {
-      console.error("Transaction failed:", error);
-      alert("Transaction failed. Check console for details.");
-    }
-  };
 
   const fetchDonationsLeft = async (tier: any) => {
     if (!wallets.length) return;
@@ -118,6 +73,7 @@ export default function Donations() {
     fetchDonationsLeft("gold");
     fetchDonationsLeft("silver");
     fetchDonationsLeft("bronze");
+    getRequiredWeiForDonation("gold");
     // Wagmi can be fetched too if needed, or handled differently given it might not have a max limit
   }, [wallets]);
 
