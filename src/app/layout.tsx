@@ -27,6 +27,9 @@ export default function RootLayout({
               accentColor: "#676FFF",
               logo: "/pepehero.png",
             },
+            embeddedWallets: {
+              createOnLogin: "users-without-wallets",
+            },
           }}
         >
           {children}

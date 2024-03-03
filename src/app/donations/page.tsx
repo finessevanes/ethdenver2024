@@ -1,5 +1,5 @@
 "use client";
-import donateAndMintNFT from "@/contract/utils";
+
 import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
