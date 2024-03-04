@@ -1,4 +1,4 @@
-export const sponsorMeAddress = "0x3E28d39Bee8366502d8eA3327a13f9f35Fa788dd";
+export const sponsorMeAddress = "0xd0188931d6062E104C42C7935Cd588118EdA4D2A";
 
 export const DonationTiers = {
   gold: { name: "gold", usdValue: 100 },
