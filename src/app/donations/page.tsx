@@ -4,24 +4,8 @@ import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { DonationTiers, defaultFormData, sponsorMeAddress, SponsorLevel } from '../../constants/contants';
+import { DonationTiers, defaultFormData, sponsorMeAddress, SponsorLevel, DonationFormData, DonationTier } from '../../constants/contants';
 import { contractABI } from "../../../src/contract/abi";
-
-type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
-
-interface DonationFormData {
-  name: string;
-  tier: DonationTier;
-  message: string;
-  price: number; // This might be redundant now, consider removing if not needed elsewhere
-}
-
-const SponsorLevel = {
-  GOLD: 0,
-  SILVER: 1,
-  BRONZE: 2,
-  WAGMI: 3,
-};
 
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
@@ -49,7 +33,7 @@ export default function Donations() {
     );
 
     // Convert tier to SponsorLevel
-    const tierToSponsorLevel = {
+    const tierToSponsorLevel: Record<string, number> = {
       gold: SponsorLevel.GOLD,
       silver: SponsorLevel.SILVER,
       bronze: SponsorLevel.BRONZE,
@@ -167,7 +151,7 @@ export default function Donations() {
     );
 
     // USD value for the selected tier
-    const usdAmount = DonationTiers[tier].usdValue;
+    const usdAmount = DonationTiers[tier as keyof typeof DonationTiers].usdValue;
 
     try {
       // Call the smart contract function usdToEth to get the required amount in wei
