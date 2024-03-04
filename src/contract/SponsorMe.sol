@@ -9,7 +9,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 
 pragma solidity ^0.8.20;
 
-contract ChainSponsorMe is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, ReentrancyGuard {
+contract SponsorMe is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, ReentrancyGuard {
     struct Donation {
         uint256 maxSupply;
         uint256 currentSupply;
