@@ -4,13 +4,20 @@ import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { DonationTiers, defaultFormData, sponsorMeAddress, SponsorLevel, DonationFormData, DonationTier } from '../../constants/contants';
+import {
+  DonationTiers,
+  defaultFormData,
+  sponsorMeAddress,
+  SponsorLevel,
+  DonationFormData,
+  DonationTier,
+} from "../../constants/contants";
 import { contractABI } from "../../../src/contract/abi";
 
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   const [requiredWei, setRequiredWei] = useState("0");
-  let [isMalicious, setIsMalicious] = useState();
+  const [isMalicious, setIsMalicious] = useState();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [donationsLeft, setDonationsLeft] = useState({
     gold: 0,
@@ -101,7 +108,8 @@ export default function Donations() {
         value: requiredWei.toString(),
       });
       await tx.wait();
-      console.log("Donation made successfully");
+      console.log("Donation made successfully", tx.hash);
+      localStorage.setItem("tx", tx.hash);
       router.push("/thank-you");
     } catch (error) {
       console.error("Donation failed:", error);
@@ -151,7 +159,8 @@ export default function Donations() {
     );
 
     // USD value for the selected tier
-    const usdAmount = DonationTiers[tier as keyof typeof DonationTiers].usdValue;
+    const usdAmount =
+      DonationTiers[tier as keyof typeof DonationTiers].usdValue;
 
     try {
       // Call the smart contract function usdToEth to get the required amount in wei
@@ -182,6 +191,10 @@ export default function Donations() {
 
     if (name === "tier") {
       const newTier = value as DonationTier;
+      if (newTier === "wagmi") {
+        setRequiredWei(DonationTiers[newTier].usdValue.toString());
+        console.log("WAGMI tier selected", requiredWei);
+      }
       // Call getRequiredWeiForDonation to log the USD to ETH conversion for the selected tier
       await getRequiredWeiForDonation(newTier); // This will log the conversion result
       setFormData((prev) => ({
