@@ -1,4 +1,5 @@
-export const sponsorMeAddress = "0xd0188931d6062E104C42C7935Cd588118EdA4D2A";
+// base contract mainnet
+export const sponsorMeAddress = "0x6c11a2F8B07E5aFB3157065a6238d304E7F69B13";
 
 export const DonationTiers = {
   gold: { name: "gold", usdValue: 100 },
