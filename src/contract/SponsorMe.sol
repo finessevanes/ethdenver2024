@@ -28,11 +28,8 @@ contract SponsorMe is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, Reent
     event DonationReceived(address donor, SponsorLevel level);
     event GeneralDonationReceived(address donor, uint256 amount);
 
-    // Sat Mar 09 2024 11:00:00 GMT-0700 (Mountain Standard Time)
-    uint256 public donationDeadline = 1710007200;
-
-    // Sat Mar 09 2024 12:00:00 GMT-0700 (Mountain Standard Time)
-    uint256 public fundTransferTime = 1710010800;
+    // Sun Mar 10 2024 22:00:00 GMT-0600 (Mountain Standard Time)
+    uint256 public donationDeadline = 1710129600;
 
     AggregatorV3Interface internal dataFeed;
 
