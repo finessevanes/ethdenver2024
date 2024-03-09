@@ -104,9 +104,6 @@ export default function Donations() {
         setLoading(false);
         return;
       }
-
-      console.log('the amount of wei that is being sent:', requiredWei.toString());
-
       // Directly use requiredWei without converting, as it should already be in wei
       const tx = await contract.makeDonation(donationTier, senderAddress, {
         value: requiredWei.toString(),
@@ -139,7 +136,7 @@ export default function Donations() {
             value={formData.price}
             onChange={handleInputChange}
             min={5}
-            className='mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
+            className='p-3 mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
           />
         </div>
       );
@@ -268,7 +265,7 @@ export default function Donations() {
               value={formData.name}
               onChange={handleInputChange}
               placeholder='Enter your name (this will be shown on the shirt for race day)'
-              className='mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
+              className='p-3 mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
               required
             />
           </div>
@@ -337,7 +334,7 @@ export default function Donations() {
               value={formData.message}
               onChange={handleInputChange}
               rows={4}
-              className='mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
+              className='p-3 mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
               placeholder='Leave a message for the runner'
             />
           </div>
