@@ -64,9 +64,11 @@ export default function Donations() {
     fetchDonationsLeft("gold");
     fetchDonationsLeft("silver");
     fetchDonationsLeft("bronze");
-    getRequiredWeiForDonation("gold");
-    // Wagmi can be fetched too if needed, or handled differently given it might not have a max limit
-  }, [wallets]);
+    // Fetch the required Wei for the current tier
+    // If the tier is 'wagmi' and has a custom amount, use that amount; otherwise, use the default tier amount
+    const usdAmount = formData.tier === 'wagmi' ? formData.price : DonationTiers[formData.tier].usdValue;
+    getRequiredWeiForDonation(formData.tier, usdAmount);
+  }, [wallets, formData.tier, formData.price]); // Add formData.tier and formData.price as dependencies
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -103,6 +105,8 @@ export default function Donations() {
         return;
       }
 
+      console.log('the amount of wei that is being sent:', requiredWei.toString());
+
       // Directly use requiredWei without converting, as it should already be in wei
       const tx = await contract.makeDonation(donationTier, senderAddress, {
         value: requiredWei.toString(),
@@ -135,7 +139,6 @@ export default function Donations() {
             value={formData.price}
             onChange={handleInputChange}
             min={5}
-            max={25}
             className='mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
           />
         </div>
@@ -145,36 +148,26 @@ export default function Donations() {
   };
 
   // Function to call usdToEth and log the conversion result
-  const getRequiredWeiForDonation = async (tier: DonationTier) => {
+  const getRequiredWeiForDonation = async (tier: DonationTier, usdAmount: number) => {
     if (!wallets.length) {
       console.error("Wallet is not connected");
       return;
     }
-
+  
     const provider = await wallets[0]?.getEthersProvider();
-    const contract = new ethers.Contract(
-      sponsorMeAddress,
-      contractABI,
-      provider
-    );
-
-    // USD value for the selected tier
-    const usdAmount =
-      DonationTiers[tier as keyof typeof DonationTiers].usdValue;
-
+    const contract = new ethers.Contract(sponsorMeAddress, contractABI, provider);
+  
     try {
-      // Call the smart contract function usdToEth to get the required amount in wei
+      // Call the smart contract function usdToEth to get the required amount in wei for the given USD amount
       const requiredWei = await contract.usdToEth(usdAmount);
-
-      // Log the result to the console for verification
+  
       console.log(
-        `${tier} tier requires ${ethers.utils.formatUnits(
+        `${usdAmount}: ${tier} tier requires ${ethers.utils.formatUnits(
           requiredWei,
           "wei"
         )} wei (${ethers.utils.formatEther(requiredWei)} ETH) for donation.`
       );
-
-      // Update state with the requiredWei for further processing or UI update
+  
       setRequiredWei(requiredWei);
     } catch (error) {
       console.error("Failed to fetch required wei for donation:", error);
@@ -188,23 +181,29 @@ export default function Donations() {
     >
   ) => {
     const { name, value } = event.target;
-
+  
+    let newFormData = { ...formData, [name]: value };
+  
     if (name === "tier") {
       const newTier = value as DonationTier;
-      if (newTier === "wagmi") {
-        setRequiredWei(DonationTiers[newTier].usdValue.toString());
-        console.log("WAGMI tier selected", requiredWei);
-      }
-      // Call getRequiredWeiForDonation to log the USD to ETH conversion for the selected tier
-      await getRequiredWeiForDonation(newTier); // This will log the conversion result
-      setFormData((prev) => ({
-        ...prev,
+      newFormData = {
+        ...newFormData,
         tier: newTier,
-        price: DonationTiers[newTier].usdValue,
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+        price: DonationTiers[newTier].usdValue, // Reset price to default when tier changes
+      };
+    } else if (name === "price" && formData.tier === "wagmi") {
+      // If the tier is "wagmi" and price is being changed, directly use the new price for conversion
+      newFormData = {
+        ...newFormData,
+        price: parseFloat(value), // Ensure value is treated as a number
+      };
     }
+  
+    setFormData(newFormData);
+  
+    // Call getRequiredWeiForDonation with either the default tier value or the new custom price
+    const usdAmount = name === "price" && formData.tier === "wagmi" ? parseFloat(value) : DonationTiers[formData.tier].usdValue;
+    await getRequiredWeiForDonation(formData.tier, usdAmount);
   };
 
   useEffect(() => {
