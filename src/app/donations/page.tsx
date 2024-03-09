@@ -4,13 +4,20 @@ import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { DonationTiers, defaultFormData, sponsorMeAddress, SponsorLevel, DonationFormData, DonationTier } from '../../constants/contants';
+import {
+  DonationTiers,
+  defaultFormData,
+  sponsorMeAddress,
+  SponsorLevel,
+  DonationFormData,
+  DonationTier,
+} from "../../constants/contants";
 import { contractABI } from "../../../src/contract/abi";
 
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
   const [requiredWei, setRequiredWei] = useState("0");
-  let [isMalicious, setIsMalicious] = useState();
+  const [isMalicious, setIsMalicious] = useState();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [donationsLeft, setDonationsLeft] = useState({
     gold: 0,
@@ -54,17 +61,12 @@ export default function Donations() {
   };
 
   useEffect(() => {
-    // Fetch the donation limits for all tiers initially
     fetchDonationsLeft("gold");
     fetchDonationsLeft("silver");
     fetchDonationsLeft("bronze");
-  
-    // Fetch the required Wei for the current tier
-    // If the tier is 'wagmi' and has a custom amount, use that amount; otherwise, use the default tier amount
-    const usdAmount = formData.tier === 'wagmi' ? formData.price : DonationTiers[formData.tier].usdValue;
-    getRequiredWeiForDonation(formData.tier, usdAmount);
-  }, [wallets, formData.tier, formData.price]); // Add formData.tier and formData.price as dependencies
-  
+    getRequiredWeiForDonation("gold");
+    // Wagmi can be fetched too if needed, or handled differently given it might not have a max limit
+  }, [wallets]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -101,13 +103,13 @@ export default function Donations() {
         return;
       }
 
-      console.log('the amount of wei that is being sent:', requiredWei.toString());
       // Directly use requiredWei without converting, as it should already be in wei
       const tx = await contract.makeDonation(donationTier, senderAddress, {
         value: requiredWei.toString(),
       });
       await tx.wait();
-      console.log("Donation made successfully");
+      console.log("Donation made successfully", tx.hash);
+      localStorage.setItem("tx", tx.hash);
       router.push("/thank-you");
     } catch (error) {
       console.error("Donation failed:", error);
@@ -133,12 +135,50 @@ export default function Donations() {
             value={formData.price}
             onChange={handleInputChange}
             min={5}
-            className='p-3 mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
+            max={25}
+            className='mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
           />
         </div>
       );
     }
     return null; // If not "wagmi", don't render anything
+  };
+
+  // Function to call usdToEth and log the conversion result
+  const getRequiredWeiForDonation = async (tier: DonationTier) => {
+    if (!wallets.length) {
+      console.error("Wallet is not connected");
+      return;
+    }
+
+    const provider = await wallets[0]?.getEthersProvider();
+    const contract = new ethers.Contract(
+      sponsorMeAddress,
+      contractABI,
+      provider
+    );
+
+    // USD value for the selected tier
+    const usdAmount =
+      DonationTiers[tier as keyof typeof DonationTiers].usdValue;
+
+    try {
+      // Call the smart contract function usdToEth to get the required amount in wei
+      const requiredWei = await contract.usdToEth(usdAmount);
+
+      // Log the result to the console for verification
+      console.log(
+        `${tier} tier requires ${ethers.utils.formatUnits(
+          requiredWei,
+          "wei"
+        )} wei (${ethers.utils.formatEther(requiredWei)} ETH) for donation.`
+      );
+
+      // Update state with the requiredWei for further processing or UI update
+      setRequiredWei(requiredWei);
+    } catch (error) {
+      console.error("Failed to fetch required wei for donation:", error);
+    }
   };
 
   // Ensure this function is called when a tier is selected
@@ -148,58 +188,24 @@ export default function Donations() {
     >
   ) => {
     const { name, value } = event.target;
-  
-    let newFormData = { ...formData, [name]: value };
-  
+
     if (name === "tier") {
       const newTier = value as DonationTier;
-      newFormData = {
-        ...newFormData,
+      if (newTier === "wagmi") {
+        setRequiredWei(DonationTiers[newTier].usdValue.toString());
+        console.log("WAGMI tier selected", requiredWei);
+      }
+      // Call getRequiredWeiForDonation to log the USD to ETH conversion for the selected tier
+      await getRequiredWeiForDonation(newTier); // This will log the conversion result
+      setFormData((prev) => ({
+        ...prev,
         tier: newTier,
-        price: DonationTiers[newTier].usdValue, // Reset price to default when tier changes
-      };
-    } else if (name === "price" && formData.tier === "wagmi") {
-      // If the tier is "wagmi" and price is being changed, directly use the new price for conversion
-      newFormData = {
-        ...newFormData,
-        price: parseFloat(value), // Ensure value is treated as a number
-      };
-    }
-  
-    setFormData(newFormData);
-  
-    // Call getRequiredWeiForDonation with either the default tier value or the new custom price
-    const usdAmount = name === "price" && formData.tier === "wagmi" ? parseFloat(value) : DonationTiers[formData.tier].usdValue;
-    await getRequiredWeiForDonation(formData.tier, usdAmount);
-  };
-  
-  // Updated getRequiredWeiForDonation to accept an additional usdAmount parameter
-  const getRequiredWeiForDonation = async (tier: DonationTier, usdAmount: number) => {
-    if (!wallets.length) {
-      console.error("Wallet is not connected");
-      return;
-    }
-  
-    const provider = await wallets[0]?.getEthersProvider();
-    const contract = new ethers.Contract(sponsorMeAddress, contractABI, provider);
-  
-    try {
-      // Call the smart contract function usdToEth to get the required amount in wei for the given USD amount
-      const requiredWei = await contract.usdToEth(usdAmount);
-  
-      console.log(
-        `${usdAmount}: ${tier} tier requires ${ethers.utils.formatUnits(
-          requiredWei,
-          "wei"
-        )} wei (${ethers.utils.formatEther(requiredWei)} ETH) for donation.`
-      );
-  
-      setRequiredWei(requiredWei);
-    } catch (error) {
-      console.error("Failed to fetch required wei for donation:", error);
+        price: DonationTiers[newTier].usdValue,
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
-
 
   useEffect(() => {
     fetch("https://api.harpie.io/v2/validateAddress", {
@@ -209,7 +215,7 @@ export default function Donations() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        apiKey: process.env.NEXT_PUBLIC_HARPIE,
+        apiKey: "74778fa4-88a8-4e35-922a-02bd82005edd",
         address: "0x9150C94dE175C6FA4d766a4e951E9c7ed204Ad1a",
       }),
     })
@@ -263,7 +269,7 @@ export default function Donations() {
               value={formData.name}
               onChange={handleInputChange}
               placeholder='Enter your name (this will be shown on the shirt for race day)'
-              className='p-3 mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
+              className='mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
               required
             />
           </div>
@@ -332,7 +338,7 @@ export default function Donations() {
               value={formData.message}
               onChange={handleInputChange}
               rows={4}
-              className='p-3 mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
+              className='mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
               placeholder='Leave a message for the runner'
             />
           </div>
