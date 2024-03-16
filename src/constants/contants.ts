@@ -2,25 +2,26 @@
 export const sponsorMeAddress = "0x6c11a2F8B07E5aFB3157065a6238d304E7F69B13";
 
 export const DonationTiers = {
-  gold: { name: "gold", usdValue: 100 },
-  silver: { name: "silver", usdValue: 50 },
-  bronze: { name: "bronze", usdValue: 25 },
-  wagmi: { name: "wagmi", usdValue: 5 },
+  gold: { usdValue: 100 },
+  silver: { usdValue: 50 },
+  bronze: { usdValue: 25 },
+  wagmi: { usdValue: 5 },
 };
 
-export type DonationTier = "gold" | "silver" | "bronze" | "wagmi";
+export type DonationTier = keyof typeof DonationTiers;
+
 export interface DonationFormData {
   name: string;
   tier: DonationTier;
   message: string;
-  price: number; // This might be redundant now, consider removing if not needed elsewhere
+  price: number;
 }
 
 export const defaultFormData: DonationFormData = {
   name: "",
-  tier: "gold", // Just the tier name, as before
+  tier: "gold", // Default tier set to 'gold'
   message: "",
-  price: DonationTiers.gold.usdValue, // Default amount for gold tier, can be dynamically set based on the tier
+  price: DonationTiers.gold.usdValue,
 };
 
 export const SponsorLevel = {

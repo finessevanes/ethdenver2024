@@ -1,21 +1,20 @@
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
 import { MovingBanner } from "./MovingBanner";
 
 export default function MarathonBanner() {
-  const { login, authenticated } = usePrivy();
   const router = useRouter();
 
   const donate = async () => {
-    if (authenticated) {
+    if (true) {
       router.push("/donations");
     } else {
-      login();
+      <w3m-button />
     }
   };
 
+  
   return (
     <div className='flex flex-col items-center justify-start min-h-screen bg-white w-full'>
       <MovingBanner text='ADD YOUR NAME ON MY SHIRT FOR RACE DAY * LA MARATHON 2024' />

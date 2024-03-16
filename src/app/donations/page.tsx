@@ -1,7 +1,5 @@
 "use client";
 
-import { useWallets } from "@privy-io/react-auth";
-import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
@@ -13,6 +11,8 @@ import {
   DonationTier,
 } from "../../constants/contants";
 import { contractABI } from "../../../src/contract/abi";
+import { useWeb3Modal } from "@web3modal/wagmi/react";
+import { useReadContract } from "wagmi";
 
 export default function Donations() {
   const [formData, setFormData] = useState<DonationFormData>(defaultFormData);
@@ -26,91 +26,53 @@ export default function Donations() {
     wagmi: Number.MAX_SAFE_INTEGER, // Assuming WAGMI has no max limit or you can dynamically fetch this too
   });
 
-  const { wallets } = useWallets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { open, close } = useWeb3Modal();
 
-  const fetchDonationsLeft = async (tier: any) => {
-    if (!wallets.length) return;
-    const provider = await wallets[0]?.getEthersProvider();
-    const sponsorMeContract = new ethers.Contract(
-      sponsorMeAddress,
-      contractABI,
-      provider
-    );
+  const tierLevel = SponsorLevel[formData.tier.toUpperCase() as keyof typeof SponsorLevel];
+  const { data: donationsLeftData, isLoading: isLoadingDonationsLeft } = useReadContract({
+    abi: contractABI,
+    address: "0x6b175474e89094c44da98b954eedeac495271d0f",
+    functionName: "usdToEth",
+    args: [tierLevel],
+  });
 
-    // Convert tier to SponsorLevel
-    const tierToSponsorLevel: Record<string, number> = {
-      gold: SponsorLevel.GOLD,
-      silver: SponsorLevel.SILVER,
-      bronze: SponsorLevel.BRONZE,
-      wagmi: SponsorLevel.WAGMI,
-    };
-
-    const tierLevel = tierToSponsorLevel[tier];
-    const donationsLeftForTier = await sponsorMeContract.donationsLeft(
-      tierLevel
-    );
-    const formattedDonationsLeft = donationsLeftForTier.toString();
-
-    // Update state with the fetched data
-    setDonationsLeft((prev) => ({
-      ...prev,
-      [tier]: formattedDonationsLeft,
-    }));
-  };
 
   useEffect(() => {
-    fetchDonationsLeft("gold");
-    fetchDonationsLeft("silver");
-    fetchDonationsLeft("bronze");
-    // Fetch the required Wei for the current tier
-    // If the tier is 'wagmi' and has a custom amount, use that amount; otherwise, use the default tier amount
-    const usdAmount = formData.tier === 'wagmi' ? formData.price : DonationTiers[formData.tier].usdValue;
-    getRequiredWeiForDonation(formData.tier, usdAmount);
-  }, [wallets, formData.tier, formData.price]); // Add formData.tier and formData.price as dependencies
+    const tierLevel =
+      SponsorLevel[formData.tier.toUpperCase() as keyof typeof SponsorLevel];
+    console.log("tierLevel", tierLevel);
+    console.log('price in tier level: ', DonationTiers[formData.tier].usdValue);
+  }, [formData.tier]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setErrorMessage(null);
 
-    if (!wallets.length) {
-      alert("Please connect your wallet.");
+    // Simplify the condition check for donations left using the DonationTiers directly
+    if (DonationTiers[formData.tier].usdValue <= 0) {
+      setErrorMessage(
+        `The ${formData.tier} tier is full. Please select another tier.`
+      );
       setLoading(false);
       return;
     }
 
-    if (Number(donationsLeft[formData.tier]) === 0) {
-      setErrorMessage(
-        `The ${formData.tier} tier is full. Please select another tier.`
-      );
-      return;
-    }
-
-    const provider = await wallets[0].getEthersProvider();
-    const signer = provider.getSigner();
-    const senderAddress = await signer.getAddress();
-    const contract = new ethers.Contract(sponsorMeAddress, contractABI, signer);
-
     try {
-      const donationTier =
-        SponsorLevel[formData.tier.toUpperCase() as keyof typeof SponsorLevel];
-      console.log("Donation tier", donationTier);
+      console.log("Initiating donation process...");
+      open(); // Assuming this method is used to prompt user wallet connection
 
-      // Ensure requiredWei is set correctly before attempting to make a donation
+      // If requiredWei is not set, abort the donation process
       if (!requiredWei || requiredWei === "0") {
         alert("Required wei amount for donation is not set. Please try again.");
         setLoading(false);
         return;
       }
-      // Directly use requiredWei without converting, as it should already be in wei
-      const tx = await contract.makeDonation(donationTier, senderAddress, {
-        value: requiredWei.toString(),
-      });
-      await tx.wait();
-      console.log("Donation made successfully", tx.hash);
-      localStorage.setItem("tx", tx.hash);
+
+      // Donation process logic goes here
+      // Assuming a successful donation, navigate to thank-you page
       router.push("/thank-you");
     } catch (error) {
       console.error("Donation failed:", error);
@@ -122,21 +84,21 @@ export default function Donations() {
   const renderCustomAmountInput = () => {
     if (formData.tier === "wagmi") {
       return (
-        <div className='mb-4'>
+        <div className="mb-4">
           <label
-            htmlFor='customAmount'
-            className='block text-sm font-medium text-gray-700'
+            htmlFor="customAmount"
+            className="block text-sm font-medium text-gray-700"
           >
             Custom Donation Amount
           </label>
           <input
-            type='number'
-            name='price'
-            id='price'
-            value={formData.price}
+            type="number"
+            name="price"
+            id="price"
+            value={5}
             onChange={handleInputChange}
             min={5}
-            className='p-3 mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50'
+            className="p-3 mt-1 text-black block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50"
           />
         </div>
       );
@@ -145,27 +107,22 @@ export default function Donations() {
   };
 
   // Function to call usdToEth and log the conversion result
-  const getRequiredWeiForDonation = async (tier: DonationTier, usdAmount: number) => {
-    if (!wallets.length) {
-      console.error("Wallet is not connected");
-      return;
-    }
-  
-    const provider = await wallets[0]?.getEthersProvider();
-    const contract = new ethers.Contract(sponsorMeAddress, contractABI, provider);
-  
+  const getRequiredWeiForDonation = async (
+    tier: DonationTier,
+    usdAmount: number
+  ) => {
     try {
+      console.log("tier", tier);
+      console.log("usdAmount", usdAmount);
       // Call the smart contract function usdToEth to get the required amount in wei for the given USD amount
-      const requiredWei = await contract.usdToEth(usdAmount);
-  
-      console.log(
-        `${usdAmount}: ${tier} tier requires ${ethers.utils.formatUnits(
-          requiredWei,
-          "wei"
-        )} wei (${ethers.utils.formatEther(requiredWei)} ETH) for donation.`
-      );
-  
-      setRequiredWei(requiredWei);
+      // const requiredWei = useReadContract({
+      //   abi: contractABI,
+      //   address: "0x6b175474e89094c44da98b954eedeac495271d0f",
+      //   functionName: "usdToEth",
+      //   args: [usdAmount],
+      // });
+
+      // setRequiredWei(requiredWei);
     } catch (error) {
       console.error("Failed to fetch required wei for donation:", error);
     }
@@ -178,29 +135,28 @@ export default function Donations() {
     >
   ) => {
     const { name, value } = event.target;
-  
+    console.log("name", name);
+    console.log("value", value);
+
     let newFormData = { ...formData, [name]: value };
-  
+
     if (name === "tier") {
       const newTier = value as DonationTier;
       newFormData = {
         ...newFormData,
         tier: newTier,
-        price: DonationTiers[newTier].usdValue, // Reset price to default when tier changes
       };
     } else if (name === "price" && formData.tier === "wagmi") {
       // If the tier is "wagmi" and price is being changed, directly use the new price for conversion
       newFormData = {
         ...newFormData,
-        price: parseFloat(value), // Ensure value is treated as a number
       };
     }
-  
+
     setFormData(newFormData);
-  
+    console.log("newFormData", newFormData);
     // Call getRequiredWeiForDonation with either the default tier value or the new custom price
-    const usdAmount = name === "price" && formData.tier === "wagmi" ? parseFloat(value) : DonationTiers[formData.tier].usdValue;
-    await getRequiredWeiForDonation(formData.tier, usdAmount);
+
   };
 
   useEffect(() => {
@@ -232,9 +188,9 @@ export default function Donations() {
   }, []);
 
   return (
-    <div className='flex items-center justify-center min-h-screen bg-gray-100'>
-      <div className='container mx-auto p-6 bg-white rounded-lg shadow-md'>
-        <h1 className='text-3xl font-bold text-center text-gray-800 mb-6'>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
           Donations
         </h1>
         <div
@@ -249,29 +205,29 @@ export default function Donations() {
         </div>
         <form
           onSubmit={handleSubmit}
-          className='space-y-6 bg-white p-6 rounded-lg shadow-md'
+          className="space-y-6 bg-white p-6 rounded-lg shadow-md"
         >
           <div>
             <label
-              htmlFor='name'
-              className='block text-sm font-medium text-gray-700'
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700"
             >
               Name (as it will be shown on the shirt)
             </label>
             <input
-              type='text'
-              name='name'
-              id='name'
+              type="text"
+              name="name"
+              id="name"
               value={formData.name}
               onChange={handleInputChange}
-              placeholder='Enter your name (this will be shown on the shirt for race day)'
-              className='p-3 mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50'
+              placeholder="Enter your name (this will be shown on the shirt for race day)"
+              className="p-3 mt-1 text-black block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
               required
             />
           </div>
 
-          <fieldset className='mb-4'>
-            <legend className='text-sm font-medium text-gray-700'>
+          <fieldset className="mb-4">
+            <legend className="text-sm font-medium text-gray-700">
               Donation Amount (checkout and placement on next page)
             </legend>
 
@@ -299,19 +255,19 @@ export default function Donations() {
                   "WAGMI - min $5. Your name will be written with sharpie around the arms and upper back of the shirt. Name may be covered due to hydration pack.",
               },
             ].map(({ tier, price, label }) => (
-              <div key={tier} className='flex items-center mb-4'>
+              <div key={tier} className="flex items-center mb-4">
                 <input
                   id={tier}
-                  type='radio'
-                  name='tier'
+                  type="radio"
+                  name="tier"
                   value={tier}
                   checked={formData.tier === tier}
                   onChange={handleInputChange}
-                  className='focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300'
+                  className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
                 />
                 <label
                   htmlFor={tier}
-                  className='ml-3 block text-sm font-medium text-gray-700'
+                  className="ml-3 block text-sm font-medium text-gray-700"
                 >
                   {label}
                 </label>
@@ -321,29 +277,29 @@ export default function Donations() {
 
           {renderCustomAmountInput()}
 
-          <div className='mb-4'>
+          <div className="mb-4">
             <label
-              htmlFor='message'
-              className='block text-sm font-medium text-gray-700'
+              htmlFor="message"
+              className="block text-sm font-medium text-gray-700"
             >
               Message
             </label>
             <textarea
-              name='message'
-              id='message'
+              name="message"
+              id="message"
               value={formData.message}
               onChange={handleInputChange}
               rows={4}
-              className='p-3 mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
-              placeholder='Leave a message for the runner'
+              className="p-3 mt-1 block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              placeholder="Leave a message for the runner"
             />
           </div>
           {errorMessage && (
-            <div className='mb-4 text-red-500'>{errorMessage}</div>
+            <div className="mb-4 text-red-500">{errorMessage}</div>
           )}
           <button
-            type='submit'
-            className='px-4 py-2 bg-purple-600 text-white rounded hover:bg-blue-600'
+            type="submit"
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-blue-600"
           >
             Donate
           </button>

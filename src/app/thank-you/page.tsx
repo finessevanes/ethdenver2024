@@ -1,17 +1,14 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const ThankYouPage: React.FC = () => {
-  const { logout } = usePrivy();
   const [tx, setTx] = useState("");
   const router = useRouter();
 
   const logoutUser = () => {
-    logout();
     router.push("/");
   };
 
